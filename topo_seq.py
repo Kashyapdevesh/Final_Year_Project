@@ -1,6 +1,11 @@
 import sys
 import pandas as pd
 
+import networkx as nx
+import numpy as np
+import matplotlib.pyplot as plt
+
+
 graph=[]
 vertices=[]
 vertices_no=0
@@ -53,6 +58,22 @@ def generate_graph(tasks,edges):
     for edge in edges:
         add_edge(edge[0],edge[1],edge[2])
     return graph
+
+def show_wgraph(G):
+    plt.figure() 
+    pos = nx.spring_layout(G)
+    weight_labels = nx.get_edge_attributes(G,'weight')
+    nx.draw(G,pos,font_color = 'white', node_shape = 's', with_labels = True,)
+    output = nx.draw_networkx_edge_labels(G,pos,edge_labels=weight_labels)
+    
+
+def visualize_graph():
+    G = nx.DiGraph()
+    for task in range(tasks):
+        G.add_node('T'+str(task+1))
+    for edge in edges:
+        G.add_edge(edge[0],edge[1],weight=edge[2])
+    show_wgraph(G)
                 
 
 # Expected processing time = no of instructions * CPI(avg.) /Clockrate
@@ -79,10 +100,39 @@ def max_predecessor(task,final_order):
                 maxTime=pred_value[1]
     return maxTime
     
+def adj_matrix_to_list_(graph):
+    adj_List={}
+    for i in range(len(graph)):
+        temp_list=[]
+        for j in range(len(graph)):
+            if graph[i][j]!=0:
+                temp_list.append('T'+str(graph[i][j]))
+        adj_List.update({'T'+str(i+1):temp_list})
+            
+    return adj_List
+                
+def topological_sort(start, visited, sort,adj_list):
+    current = start
+    visited.append(current)
+    neighbors = adj_list[current]
+    for neighbor in neighbors:
+        if neighbor not in visited:
+            sort = topological_sort(neighbor, visited, sort,adj_list)
+    sort.append(current)
+    if len(visited) != len(vertices):
+        for vertice in vertices:
+            if vertice not in visited:
+                sort = topological_sort(vertice, visited, sort,adj_list)
+    return sort
+
+def generate_task_sequence():
+    pass
 
 def schedule_tasks(processors,tasks,sequence_order,latency,EPT_Matrix):
     final_order={}
     p_clock=[0]*processors
+    p_idle_time=[0]*processors
+    p_tasks=[0]*processors
 
     for i in range(tasks):
         task=sequence_order[i][1:2]
@@ -108,17 +158,31 @@ def schedule_tasks(processors,tasks,sequence_order,latency,EPT_Matrix):
             if(total_time<minCost):
                 minCost=total_time
                 processor_used=processor
-#         print("PROCESSOR "+str(processor_used+1)+" USED WITH "+str(minCost)+" TIME\n")   
+        
         minCost=round(minCost,3)
+#         print("PROCESSOR "+str(processor_used+1)+" USED WITH "+str(minCost)+" TIME\n")
+        
+        for processor in range(processors):
+            if processor == processor_used:
+                p_tasks[processor]+=1
+                continue
+            p_idle_time[processor]+=minCost
+            
         p_clock[processor_used]+=minCost
-        final_order.update({'T'+str(task): [processor_used+1,minCost]})
+        final_order.update({'T'+str(task): ['P'+str(processor_used+1),minCost]})
         print("processor "+str(processor_used+1)+" takes minimum time of "+str(minCost)+" time units for task "+str(task)+
           " and ends at "+str(p_clock[processor_used])+" time unit ")
     print("\n")
     print("Individual time taken by processors are "+str(p_clock)+"\n")
     print("Total time taken for all tasks : "+str(max(p_clock))+" time units\n")
+    print("Idle time of each processors are : "+str(p_idle_time)+"\n")
+    print("Total no. of tasks executed by each processor are : "+str(p_tasks)+"\n")
     print(str(final_order)+"\n")
 
+
+
+    
+    
 
 if __name__=="__main__":
 	tasks=8
